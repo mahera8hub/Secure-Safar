@@ -3,12 +3,17 @@ FROM node:18-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
-# Copy package files and install dependencies
+# Copy package files and install ALL dependencies (dev + prod)
 COPY frontend/package*.json ./
-RUN npm ci --only=production
+RUN npm install
 
-# Copy source code and build
+# Copy frontend source code
 COPY frontend ./
+
+# Optional: disable TS unused errors if needed
+# RUN npx tsc --noEmit --skipLibCheck || true
+
+# Build frontend
 RUN npm run build
 
 # -------- Stage 2: Setup Backend --------
@@ -17,7 +22,11 @@ FROM python:3.9-slim AS backend
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y gcc g++ curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements and install
 COPY backend/requirements.txt .
@@ -33,7 +42,7 @@ COPY --from=frontend-build /app/frontend/dist ./static
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port
+# Expose backend port
 EXPOSE 8000
 
 # Health check
